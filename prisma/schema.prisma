@@ -67,6 +67,7 @@ enum JobSource {
   REMOTEOK
   SERPAPI
 }
+// Note: SERPAPI is managed by the distil repo (nightly batch) — not this repo
 
 enum AppStatus {
   PENDING_APPROVAL

@@ -3,9 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "refresh-global":  "tsx scripts/refresh-global.ts",
-    "refresh-adzuna":  "tsx scripts/refresh-adzuna.ts",
-    "refresh-serpapi": "tsx scripts/refresh-serpapi.ts"
+    "refresh-global": "tsx scripts/refresh-global.ts",
+    "refresh-adzuna": "tsx scripts/refresh-adzuna.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^6.0.0",
