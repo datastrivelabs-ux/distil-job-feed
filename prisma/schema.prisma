@@ -1,0 +1,75 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Job {
+  id             String        @id @default(cuid())
+  orgId          String?
+  source         JobSource
+  externalId     String?
+  country        String
+  title          String
+  company        String
+  location       String
+  city           String?
+  type           String
+  salary         String?
+  description    String
+  requiredSkills String[]
+  applyUrl       String?
+  active         Boolean       @default(true)
+  expiresAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  applications   Application[]
+
+  @@unique([source, externalId])
+  @@index([country, active])
+  @@map("jobs")
+}
+
+model Application {
+  id          String    @id @default(cuid())
+  candidateId String
+  jobId       String
+  linkedJobId String?
+  linkedJob   Job?      @relation(fields: [linkedJobId], references: [id], onDelete: SetNull)
+  jobTitle    String
+  company     String
+  coverLetter String
+  status      AppStatus @default(PENDING_APPROVAL)
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("applications")
+}
+
+model OrgConfig {
+  id      String @id @default(cuid())
+  orgId   String @unique
+  country String @default("EU")
+
+  @@map("org_configs")
+}
+
+enum JobSource {
+  INTERNAL
+  ADZUNA
+  REMOTIVE
+  ARBEITNOW
+  JOBICY
+  REMOTEOK
+}
+
+enum AppStatus {
+  PENDING_APPROVAL
+  SENT
+  REJECTED
+  NO_DECISION
+}
