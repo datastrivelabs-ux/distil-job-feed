@@ -65,6 +65,7 @@ enum JobSource {
   ARBEITNOW
   JOBICY
   REMOTEOK
+  SERPAPI
 }
 
 enum AppStatus {
