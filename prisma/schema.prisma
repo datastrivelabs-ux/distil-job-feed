@@ -30,7 +30,8 @@ model Job {
   applications   Application[]
 
   @@unique([source, externalId])
-  @@index([country, active])
+  @@index([active, createdAt])
+  @@index([active, country, createdAt])
   @@map("jobs")
 }
 
