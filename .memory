@@ -1,0 +1,65 @@
+# distil-job-feed — Memory
+
+## 1. Purpose
+A standalone job-scraping microservice for the "distil" AI CV-parsing product
+(sibling repo `../distil`). Verified: both repos share an identical `Job`
+Prisma model (`@@map("jobs")`, same fields/enums) and the `.env.example` here
+says "same connection string as in the Distil project" — this repo writes
+directly into the same Neon Postgres DB that `distil`'s Next.js app reads
+from. `distil/src/app/(app)/browse/page.tsx` references job-feed jobs.
+No HTTP server / API here — it's pure batch scripts that fetch external job
+listings and upsert them into the shared `jobs` table for `distil` to display
+and let candidates apply against.
+
+## 2. Tech stack
+- TypeScript (ES2022, ESNext modules), run via `tsx` (no compile step used)
+- Prisma ORM 6.x with `@prisma/adapter-pg` (driver adapter) + `pg` Pool
+- Node 20 (per CI), `dotenv` for env loading
+- No framework, no HTTP server, no test runner present
+
+## 3. Architecture / entry points
+- `scripts/refresh-global.ts` — fetches Remotive, Arbeitnow, Jobicy, RemoteOK
+  (all free, no API key) in parallel, upserts as `country: 'GLOBAL'`, then
+  soft-expires (30-day TTL) and hard-deletes stale jobs, and sweeps old SENT
+  applications to `NO_DECISION`.
+- `scripts/refresh-adzuna.ts` — fetches Adzuna per active `OrgConfig.country`
+  (rate-limited free tier, ~250 req/month), upserts only.
+- `src/lib/feeds/{adzuna,arbeitnow,jobicy,remoteok,remotive}.ts` — one fetcher
+  module per source, each normalizes to a common job shape.
+- `src/lib/feeds/skills.ts` — regex keyword-matches a static ~150-term skill
+  list against job descriptions to populate `requiredSkills` when a source
+  doesn't provide tags.
+- `prisma/schema.prisma` — `Job`, `Application`, `OrgConfig` models;
+  `JobSource` enum includes `SERPAPI` but that source is explicitly commented
+  as "managed by the distil repo (nightly batch) — not this repo".
+- No `src/index.ts` or server entry — the two scripts are the only entry
+  points (`npm run refresh-global`, `npm run refresh-adzuna`).
+
+## 4. Deployment target
+GitHub Actions only (no Vercel config, no Dockerfile, no serverless config
+found):
+- `.github/workflows/refresh-global.yml` — cron `*/30 * * * *` (every 30 min)
+- `.github/workflows/refresh-adzuna.yml` — cron `0 2 * * *` (daily, 2am UTC)
+Both run `npm ci`, `npx prisma generate`, then the relevant script, using
+repo secrets `DATABASE_URL`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`. Comments in
+the scripts say this direct-DB approach "bypasses Vercel Deployment
+Protection" (implying `distil` itself is Vercel-hosted, but this repo is not).
+
+## 5. Current build/run status
+- `node_modules` not installed locally; not verified to actually run
+  end-to-end in this session (would require live `DATABASE_URL` +
+  external API calls).
+- No build/lint/test scripts defined in `package.json` (only the two
+  `refresh-*` scripts). No CI step type-checks or lints before running.
+- Working tree is clean, 4 commits total, in sync with `origin/main`.
+
+## 6. Known gaps/TODOs
+- No automated tests of any kind.
+- No lint config despite `tsconfig.json` with `strict: true`.
+- No README documenting setup for a new contributor.
+- SERPAPI is a defined `JobSource` enum value but has no fetcher in this
+  repo (intentionally owned by `distil` instead) — a latent coupling if the
+  two repos' schemas drift.
+- Adzuna quota logic assumes `OrgConfig` rows exist; falls back to hardcoded
+  `IN` if none — Unclear whether this fallback is still desired behavior or
+  a leftover default — needs owner input.
